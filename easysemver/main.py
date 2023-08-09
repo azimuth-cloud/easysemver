@@ -6,17 +6,19 @@ import re
 SEMVER_VERSION_REGEX = (
     r"^"
     r"v?"
-    r"(?P<major>\d+)"
+    r"(?P<major>0|[1-9]\d*)"
     r"\."
-    r"(?P<minor>\d+)"
+    r"(?P<minor>0|[1-9]\d*)"
     r"\."
-    r"(?P<patch>\d+)"
+    r"(?P<patch>0|[1-9]\d*)"
     r"(?:-(?P<prerelease>[a-zA-Z0-9.-]+))?"
     r"(?:\+(?P<build>[a-zA-Z0-9.-]+))?"
     r"$"
 )
 # Regex that matches a single SemVer version anywhere in a string without groups
-SEMVER_VERSION_ANY_REGEX = r"v?\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?(?:\+[a-zA-Z0-9.-]+)?"
+SEMVER_VERSION_ANY_REGEX = (
+    r"v?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[a-zA-Z0-9.-]+)?(?:\+[a-zA-Z0-9.-]+)?"
+)
 # Regex that matches a single constraint with groups
 SEMVER_CONSTRAINT_REGEX = (
     r"^" +
