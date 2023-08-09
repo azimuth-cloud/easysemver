@@ -5,7 +5,7 @@ import re
 # Regex that matches a single SemVer version with groups
 SEMVER_VERSION_REGEX = (
     r"^"
-    r"v?"
+    r"(?P<prefix>v?)"
     r"(?P<major>0|[1-9]\d*)"
     r"\."
     r"(?P<minor>0|[1-9]\d*)"
@@ -71,10 +71,15 @@ class Version:
         match = re.match(SEMVER_VERSION_REGEX, version)
         if match is None:
             raise TypeError(f"'{version}' is not a valid SemVer version")
+        # The prefix is not considered for any comparisons
+        # We retain it only for preserving conversion back to a string
+        self.prefix = match.group("prefix")
+        # Major, minor and patch are used for comparisons
         self.major = Component(match.group("major"))
         self.minor = Component(match.group("minor"))
         self.patch = Component(match.group("patch"))
         # The prerelease can consist of multiple dot-separated components
+        # which are compared element-wise
         prerelease = match.group("prerelease")
         self.prerelease = (
             tuple(Component(p) for p in prerelease.split("."))
@@ -84,8 +89,10 @@ class Version:
         # The build isn't considered for anything, so doesn't need to be a component
         self.build = match.group("build")
 
-    def format(self, prerelease = True, build = True):
+    def format(self, prefix = True, prerelease = True, build = True):
         version = f"{self.major}.{self.minor}.{self.patch}"
+        if prefix and self.prefix:
+            version = f"{self.prefix}{version}"
         if prerelease and self.prerelease:
             version = f"{version}-{'.'.join(str(p) for p in self.prerelease)}"
         if build and self.build:
