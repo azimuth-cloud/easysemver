@@ -22,12 +22,12 @@ SEMVER_VERSION_ANY_REGEX = (
 # Regex that matches a single constraint with groups
 SEMVER_CONSTRAINT_REGEX = (
     r"^" +
-    r"(?P<operator>==|!=|>=?|<=?)" +
+    r"(?P<operator>==|!=|>=?|<=?|~)" +
     r"(?P<version>" + SEMVER_VERSION_ANY_REGEX + r")" +
     r"$"
 )
 # Regex that matches a constraint anywhere in a string without groups
-SEMVER_CONSTRAINT_ANY_REGEX = r"(?:==|!=|>=?|<=?)" + SEMVER_VERSION_ANY_REGEX
+SEMVER_CONSTRAINT_ANY_REGEX = r"(?:==|!=|>=?|<=?|~)" + SEMVER_VERSION_ANY_REGEX
 # Regex that matches one or more constraints separated by commas
 # This is used in CRD schemas, so can only use Perl-compliant features
 SEMVER_RANGE_REGEX = (
@@ -51,7 +51,7 @@ class Component:
 
     def __gt__(self, other):
         other = str(other)
-        # If both parts are all digits, compare them as numbers
+        # If both parts are numeric, compare them as numbers
         # If not, do a string comparison
         if self.value.isdigit() and other.isdigit():
             return int(self.value) > int(other)
@@ -60,6 +60,12 @@ class Component:
 
     def __str__(self):
         return self.value
+
+    def increment(self):
+        if self.value.isdigit():
+            return self.__class__(int(self.value) + 1)
+        else:
+            raise TypeError("component is not numeric")
 
 
 @functools.total_ordering
@@ -133,17 +139,32 @@ class Version:
         else:
             return False
 
+    def bump_major(self, preserve_build = False):
+        new_version = f"{self.prefix}{self.major.increment()}.0.0"
+        if preserve_build and self.build:
+            new_version = f"{new_version}+{self.build}"
+        return self.__class__(new_version)
+
+    def bump_minor(self, preserve_build = False):
+        new_version = f"{self.prefix}{self.major}.{self.minor.increment()}.0"
+        if preserve_build and self.build:
+            new_version = f"{new_version}+{self.build}"
+        return self.__class__(new_version)
+
+    def bump_patch(self, preserve_build = False):
+        new_version = f"{self.prefix}{self.major}.{self.minor}.{self.patch.increment()}"
+        if preserve_build and self.build:
+            new_version = f"{new_version}+{self.build}"
+        return self.__class__(new_version)
+
 
 class Constraint:
     """
     Represents a single SemVer constraint.
     """
-    def __init__(self, constraint):
-        match = re.match(SEMVER_CONSTRAINT_REGEX, constraint)
-        if match is None:
-            raise TypeError(f"'{constraint}' is not a valid SemVer constraint")
-        self.operator = match.group("operator")
-        self.version = Version(match.group("version"))
+    def __init__(self, operator, version):
+        self.operator = operator
+        self.version = version if isinstance(version, Version) else Version(version)
 
     def __contains__(self, version):
         if not isinstance(version, Version):
@@ -175,6 +196,20 @@ class Constraint:
     def __str__(self):
         return f"{self.operator}{self.version}"
 
+    @classmethod
+    def expand(cls, constraint):
+        match = re.match(SEMVER_CONSTRAINT_REGEX, constraint)
+        if match is None:
+            raise TypeError(f"'{constraint}' is not a valid SemVer constraint")
+        operator = match.group("operator")
+        version = Version(match.group("version"))
+        if operator == "~":
+            # Expand the tilde operator into upper and lower bounds
+            # ~ allows the patch version to be flexible
+            return [cls(">=", version), cls("<", version.bump_minor())]
+        else:
+            return [cls(operator, version)]
+
 
 class Range:
     """
@@ -184,11 +219,13 @@ class Range:
         match = re.match(SEMVER_RANGE_REGEX, range)
         if match is None:
             raise TypeError(f"'{range}' is not a valid SemVer range")
-        constraints = [Constraint(constraint) for constraint in range.split(",")]
+        constraints = []
+        for constraint in range.split(","):
+            constraints.extend(Constraint.expand(constraint))
         # If there is no lower bound, include >=0.0.0 implicitly so that only
         # stable releases are considered
         if not any(c.is_lower for c in constraints):
-            constraints.insert(0, Constraint(">=0.0.0"))
+            constraints.insert(0, Constraint(">=", "0.0.0"))
         self.constraints = constraints
 
     def __contains__(self, version):
