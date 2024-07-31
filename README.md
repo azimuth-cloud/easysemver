@@ -5,10 +5,10 @@ with special attention on the correct treatment of prerelease parts.
 
 ## Installation
 
-`easysemver` is currently installed directly from GitHub:
+`easysemver` can be installed from PyPI:
 
 ```sh
-pip install git+https://github.com/stackhpc/easysemver
+pip install easysemver
 ```
 
 ## Usage
