@@ -1,7 +1,6 @@
 import functools
 import re
 
-
 # Regex that matches a single SemVer version with groups
 SEMVER_VERSION_REGEX = (
     r"^"
@@ -16,25 +15,27 @@ SEMVER_VERSION_REGEX = (
     r"$"
 )
 # Regex that matches a single SemVer version anywhere in a string without groups
-SEMVER_VERSION_ANY_REGEX = (
-    r"v?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[a-zA-Z0-9.-]+)?(?:\+[a-zA-Z0-9.-]+)?"
-)
+SEMVER_VERSION_ANY_REGEX = r"v?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[a-zA-Z0-9.-]+)?(?:\+[a-zA-Z0-9.-]+)?"  # noqa: E501
 # Regex that matches a single constraint with groups
 SEMVER_CONSTRAINT_REGEX = (
-    r"^" +
-    r"(?P<operator>==|!=|>=?|<=?|~)" +
-    r"(?P<version>" + SEMVER_VERSION_ANY_REGEX + r")" +
-    r"$"
+    r"^"
+    + r"(?P<operator>==|!=|>=?|<=?|~)"
+    + r"(?P<version>"
+    + SEMVER_VERSION_ANY_REGEX
+    + r")"
+    + r"$"
 )
 # Regex that matches a constraint anywhere in a string without groups
 SEMVER_CONSTRAINT_ANY_REGEX = r"(?:==|!=|>=?|<=?|~)" + SEMVER_VERSION_ANY_REGEX
 # Regex that matches one or more constraints separated by commas
 # This is used in CRD schemas, so can only use Perl-compliant features
 SEMVER_RANGE_REGEX = (
-    r"^" +
-    SEMVER_CONSTRAINT_ANY_REGEX +
-    r"(?:," + SEMVER_CONSTRAINT_ANY_REGEX + r")*" +
-    r"$"
+    r"^"
+    + SEMVER_CONSTRAINT_ANY_REGEX
+    + r"(?:,"
+    + SEMVER_CONSTRAINT_ANY_REGEX
+    + r")*"
+    + r"$"
 )
 
 
@@ -43,6 +44,7 @@ class Component:
     """
     Represents a component in a version.
     """
+
     def __init__(self, value):
         self.value = str(value)
 
@@ -73,6 +75,7 @@ class Version:
     """
     Represents a SemVer version.
     """
+
     def __init__(self, version):
         match = re.match(SEMVER_VERSION_REGEX, version)
         if match is None:
@@ -85,17 +88,15 @@ class Version:
         self.minor = Component(match.group("minor"))
         self.patch = Component(match.group("patch"))
         # The prerelease can consist of multiple dot-separated components
-        # which are compared element-wise
+        # which are compared element-wise
         prerelease = match.group("prerelease")
         self.prerelease = (
-            tuple(Component(p) for p in prerelease.split("."))
-            if prerelease
-            else None
+            tuple(Component(p) for p in prerelease.split(".")) if prerelease else None
         )
         # The build isn't considered for anything, so doesn't need to be a component
         self.build = match.group("build")
 
-    def format(self, prefix = True, prerelease = True, build = True):
+    def format(self, prefix=True, prerelease=True, build=True):
         version = f"{self.major}.{self.minor}.{self.patch}"
         if prefix and self.prefix:
             version = f"{self.prefix}{version}"
@@ -113,10 +114,10 @@ class Version:
             other = Version(other)
         # Two versions with the same build are equal
         return (
-            self.major == other.major and
-            self.minor == other.minor and
-            self.patch == other.patch and
-            self.prerelease == other.prerelease
+            self.major == other.major
+            and self.minor == other.minor
+            and self.patch == other.patch
+            and self.prerelease == other.prerelease
         )
 
     def __gt__(self, other):
@@ -139,19 +140,19 @@ class Version:
         else:
             return False
 
-    def bump_major(self, preserve_build = False):
+    def bump_major(self, preserve_build=False):
         new_version = f"{self.prefix}{self.major.increment()}.0.0"
         if preserve_build and self.build:
             new_version = f"{new_version}+{self.build}"
         return self.__class__(new_version)
 
-    def bump_minor(self, preserve_build = False):
+    def bump_minor(self, preserve_build=False):
         new_version = f"{self.prefix}{self.major}.{self.minor.increment()}.0"
         if preserve_build and self.build:
             new_version = f"{new_version}+{self.build}"
         return self.__class__(new_version)
 
-    def bump_patch(self, preserve_build = False):
+    def bump_patch(self, preserve_build=False):
         new_version = f"{self.prefix}{self.major}.{self.minor}.{self.patch.increment()}"
         if preserve_build and self.build:
             new_version = f"{new_version}+{self.build}"
@@ -162,6 +163,7 @@ class Constraint:
     """
     Represents a single SemVer constraint.
     """
+
     def __init__(self, operator, version):
         self.operator = operator
         self.version = version if isinstance(version, Version) else Version(version)
@@ -215,7 +217,8 @@ class Range:
     """
     Represents a SemVer range consisting of the union of multiple constraints.
     """
-    def __init__(self, range):
+
+    def __init__(self, range):  # noqa: A002
         match = re.match(SEMVER_RANGE_REGEX, range)
         if match is None:
             raise TypeError(f"'{range}' is not a valid SemVer range")
@@ -223,7 +226,7 @@ class Range:
         for constraint in range.split(","):
             constraints.extend(Constraint.expand(constraint))
         # If there is no lower bound, include >=0.0.0 implicitly so that only
-        # stable releases are considered
+        # stable releases are considered
         if not any(c.is_lower for c in constraints):
             constraints.insert(0, Constraint(">=", "0.0.0"))
         self.constraints = constraints
