@@ -2,3 +2,12 @@ __pycache__
 *.pyc
 *.egg-info
 .python-version
+build
+
+# Coverage reports/ unit tests
+cover/
+.coverage*
+!.coveragerc
+.tox
+.stestr
+.venv
